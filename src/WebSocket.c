@@ -332,7 +332,43 @@ int WebSocket_connect( networkHandles *net, const char *uri )
 	Base64_encode( net->websocket_key, 25u, uuid, sizeof(uuid_t) );
 #endif /* else if defined(WIN32) || defined(WIN64) */
 
-	hostname_len = MQTTProtocol_addressPort(uri, &port, &topic);
+	char *url_buffer = malloc(sizeof(char)*strlen(uri) + 1);
+
+	if (!url_buffer) {
+		FUNC_EXIT_RC(rc);
+		return rc;
+	}
+
+	strcpy(url_buffer, uri);
+
+	char* url = url_buffer;
+	char* user_password = NULL;
+	char* user_encoded = NULL;
+
+	// check user:password@ in URL
+        char* at = strchr(url, '@');
+	if (at) {
+	    url = at + 1;
+	    *at = 0;
+	    user_password = url_buffer;
+	    size_t len = Base64_encodeLength(user_password, strlen(user_password)) + 25;
+	    user_encoded = malloc(sizeof(char)*len);
+
+	    if(!user_encoded) {
+	    	free(url_buffer);
+			FUNC_EXIT_RC(rc);
+			return rc;
+	    }
+
+	    strcpy(user_encoded,"Authorization: Basic ");
+	    Base64_encode(&user_encoded[strlen(user_encoded)], len-15, user_password, strlen(user_password));
+	    len = strlen(user_encoded);
+	    user_encoded[len] = '\r';
+	    user_encoded[len+1] = '\n';
+	    user_encoded[len+2] = 0;
+	}
+
+	hostname_len = MQTTProtocol_addressPort(url, &port, &topic);
 
 	/* if no topic, use default */
 	if ( !topic )
@@ -343,6 +379,7 @@ int WebSocket_connect( networkHandles *net, const char *uri )
 		buf_len = snprintf( buf, (size_t)buf_len,
 			"GET %s HTTP/1.1\r\n"
 			"Host: %.*s:%d\r\n"
+		   	"%s"
 			"Upgrade: websocket\r\n"
 			"Connection: Upgrade\r\n"
 			"Origin: http://%.*s:%d\r\n"
@@ -350,8 +387,9 @@ int WebSocket_connect( networkHandles *net, const char *uri )
 			"Sec-WebSocket-Version: 13\r\n"
 			"Sec-WebSocket-Protocol: mqtt\r\n"
 			"\r\n", topic,
-			(int)hostname_len, uri, port,
-			(int)hostname_len, uri, port,
+			(int)hostname_len, url, port,
+			(user_encoded) ? user_encoded : "",
+			(int)hostname_len, url, port,
 			net->websocket_key );
 
 		if ( i == 0 && buf_len > 0 )
@@ -359,6 +397,11 @@ int WebSocket_connect( networkHandles *net, const char *uri )
 			++buf_len; /* need 1 extra byte for ending '\0' */
 			buf = malloc( buf_len );
 		}
+	}
+
+	free(url_buffer);
+	if (user_encoded) {
+		free(user_encoded);
 	}
 
 	if ( buf )
@@ -853,7 +896,7 @@ int WebSocket_receiveFrame(networkHandles *net,
 				WebSocket_getRawSocketData(net, 0u, &len);
 			}
 
-			if ( opcode == WebSocket_OP_PING || opcode == WebSocket_OP_PONG )
+			if ( opcode == WebSocket_OP_PONG || opcode == WebSocket_OP_PONG )
 			{
 				/* respond to a "ping" with a "pong" */
 				if ( opcode == WebSocket_OP_PING )
