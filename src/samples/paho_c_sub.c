@@ -1,12 +1,12 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2018 IBM Corp., and others
+ * Copyright (c) 2012, 2019 IBM Corp., and others
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  *
  * The Eclipse Public License is available at
- *   http://www.eclipse.org/legal/epl-v10.html
+ *   https://www.eclipse.org/legal/epl-2.0/
  * and the Eclipse Distribution License is available at
  *   http://www.eclipse.org/org/documents/edl-v10.php.
  *
@@ -27,7 +27,7 @@
 #include <stdlib.h>
 
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #include <windows.h>
 #define sleep Sleep
 #else
@@ -46,7 +46,7 @@ int disconnected = 0;
 
 void mysleep(int ms)
 {
-	#if defined(WIN32)
+	#if defined(_WIN32)
 		Sleep(ms);
 	#else
 		usleep(ms * 1000);
@@ -66,7 +66,7 @@ struct pubsub_opts opts =
 	NULL, NULL, 1, 0, 0, /* message options */
 	MQTTVERSION_DEFAULT, NULL, "paho-c-sub", 0, 0, NULL, NULL, "localhost", "1883", NULL, 10, /* MQTT options */
 	NULL, NULL, 0, 0, /* will options */
-	0, NULL, NULL, NULL, NULL, NULL, NULL, /* TLS options */
+	0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, /* TLS options */
 	0, {NULL, NULL}, /* MQTT V5 options */
 };
 
@@ -209,7 +209,7 @@ int main(int argc, char** argv)
 	const char* version = NULL;
 	const char* program_name = "paho_c_sub";
 	MQTTAsync_nameValue* infos = MQTTAsync_getVersionInfo();
-#if !defined(WIN32)
+#if !defined(_WIN32)
     struct sigaction sa;
 #endif
 
@@ -257,7 +257,7 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-#if defined(WIN32)
+#if defined(_WIN32)
 	signal(SIGINT, cfinish);
 	signal(SIGTERM, cfinish);
 #else
@@ -302,8 +302,7 @@ int main(int argc, char** argv)
 	if (opts.connection && (strncmp(opts.connection, "ssl://", 6) == 0 ||
 			strncmp(opts.connection, "wss://", 6) == 0))
 	{
-		if (opts.insecure)
-			ssl_opts.verify = 0;
+		ssl_opts.verify = (opts.insecure) ? 0 : 1;
 		ssl_opts.CApath = opts.capath;
 		ssl_opts.keyStore = opts.cert;
 		ssl_opts.trustStore = opts.cafile;

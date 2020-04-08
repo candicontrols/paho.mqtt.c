@@ -1,12 +1,12 @@
 #*******************************************************************************
-#  Copyright (c) 2009, 2018 IBM Corp.
+#  Copyright (c) 2009, 2019 IBM Corp.
 #
 #  All rights reserved. This program and the accompanying materials
-#  are made available under the terms of the Eclipse Public License v1.0
+#  are made available under the terms of the Eclipse Public License v2.0
 #  and Eclipse Distribution License v1.0 which accompany this distribution.
 #
 #  The Eclipse Public License is available at
-#     http://www.eclipse.org/legal/epl-v10.html
+#     https://www.eclipse.org/legal/epl-2.0/
 #  and the Eclipse Distribution License is available at
 #    http://www.eclipse.org/org/documents/edl-v10.php.
 #
@@ -23,8 +23,12 @@
 SHELL = /bin/sh
 .PHONY: clean, mkdir, install, uninstall, html
 
+MAJOR_VERSION := $(shell cat version.major)
+MINOR_VERSION := $(shell cat version.minor)
+PATCH_VERSION := $(shell cat version.patch)
+
 ifndef release.version
-  release.version = 1.3.0
+  release.version = $(MAJOR_VERSION).$(MINOR_VERSION).$(PATCH_VERSION)
 endif
 
 # determine current platform
@@ -128,8 +132,6 @@ INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA =  $(INSTALL) -m 644
 DOXYGEN_COMMAND = doxygen
 
-MAJOR_VERSION = 1
-MINOR_VERSION = 0
 VERSION = ${MAJOR_VERSION}.${MINOR_VERSION}
 
 MQTTLIB_C_NAME = lib${MQTTLIB_C}.so.${VERSION}
@@ -152,15 +154,19 @@ PAHO_C_SUB_TARGET = ${blddir}/samples/${PAHO_C_SUB_NAME}
 PAHO_CS_PUB_TARGET = ${blddir}/samples/${PAHO_CS_PUB_NAME}
 PAHO_CS_SUB_TARGET = ${blddir}/samples/${PAHO_CS_SUB_NAME}
 
-CCFLAGS_SO = -g -fPIC $(CFLAGS) -Os -Wall -fvisibility=hidden -I$(blddir_work) 
-FLAGS_EXE = $(LDFLAGS) -I ${srcdir} -lpthread -L ${blddir}
-FLAGS_EXES = $(LDFLAGS) -I ${srcdir} ${START_GROUP} -lpthread -lssl -lcrypto ${END_GROUP} -L ${blddir}
+#CCFLAGS_SO = -g -fPIC $(CFLAGS) -Os -Wall -fvisibility=hidden -I$(blddir_work) 
+#FLAGS_EXE = $(LDFLAGS) -I ${srcdir} -lpthread -L ${blddir}
+#FLAGS_EXES = $(LDFLAGS) -I ${srcdir} ${START_GROUP} -lpthread -lssl -lcrypto ${END_GROUP} -L ${blddir}
+
+CCFLAGS_SO = -g -fPIC $(CFLAGS) -D_GNU_SOURCE -Os -Wall -fvisibility=hidden -I$(blddir_work) -DPAHO_MQTT_EXPORTS=1
+FLAGS_EXE = $(LDFLAGS) -I ${srcdir} ${START_GROUP} -lpthread ${GAI_LIB} ${END_GROUP} -L ${blddir}
+FLAGS_EXES = $(LDFLAGS) -I ${srcdir} ${START_GROUP} -lpthread ${GAI_LIB} -lssl -lcrypto ${END_GROUP} -L ${blddir}
 
 LDCONFIG ?= /sbin/ldconfig
-LDFLAGS_C = $(LDFLAGS) -shared -Wl,-init,$(MQTTCLIENT_INIT) -lpthread
-LDFLAGS_CS = $(LDFLAGS) -shared $(START_GROUP) -lpthread $(EXTRA_LIB) -lssl -lcrypto $(END_GROUP) -Wl,-init,$(MQTTCLIENT_INIT)
-LDFLAGS_A = $(LDFLAGS) -shared -Wl,-init,$(MQTTASYNC_INIT) -lpthread
-LDFLAGS_AS = $(LDFLAGS) -shared $(START_GROUP) -lpthread $(EXTRA_LIB) -lssl -lcrypto $(END_GROUP) -Wl,-init,$(MQTTASYNC_INIT)
+LDFLAGS_C = $(LDFLAGS) -shared -Wl,-init,$(MQTTCLIENT_INIT) $(START_GROUP) -lpthread $(GAI_LIB) $(END_GROUP)
+LDFLAGS_CS = $(LDFLAGS) -shared $(START_GROUP) -lpthread $(GAI_LIB) $(EXTRA_LIB) -lssl -lcrypto $(END_GROUP) -Wl,-init,$(MQTTCLIENT_INIT)
+LDFLAGS_A = $(LDFLAGS) -shared -Wl,-init,$(MQTTASYNC_INIT) $(START_GROUP) -lpthread $(GAI_LIB) $(END_GROUP)
+LDFLAGS_AS = $(LDFLAGS) -shared $(START_GROUP) -lpthread $(GAI_LIB) $(EXTRA_LIB) -lssl -lcrypto $(END_GROUP) -Wl,-init,$(MQTTASYNC_INIT)
 
 SED_COMMAND = sed \
     -e "s/@CLIENT_VERSION@/${release.version}/g" \
@@ -173,6 +179,7 @@ MQTTASYNC_INIT = MQTTAsync_init
 START_GROUP = -Wl,--start-group
 END_GROUP = -Wl,--end-group
 
+GAI_LIB = -lanl
 EXTRA_LIB = -ldl
 
 LDFLAGS_C += -Wl,-soname,lib$(MQTTLIB_C).so.${MAJOR_VERSION}
@@ -187,6 +194,7 @@ MQTTASYNC_INIT = _MQTTAsync_init
 START_GROUP =
 END_GROUP =
 
+GAI_LIB = 
 EXTRA_LIB = -ldl
 
 CCFLAGS_SO += -Wno-deprecated-declarations -DOSX -I /usr/local/opt/openssl/include
@@ -239,6 +247,7 @@ ${ASYNC_UTILS}: ${blddir}/samples/%: ${srcdir}/samples/%.c ${srcdir}/samples/pub
 	${CC} -o $@ $< -l${MQTTLIB_AS} ${FLAGS_EXES} ${srcdir}/samples/pubsub_opts.c
 
 $(blddir_work)/VersionInfo.h: $(srcdir)/VersionInfo.h.in
+	-mkdir -p $(blddir_work)
 	$(SED_COMMAND) $< > $@
 
 ${MQTTLIB_C_TARGET}: ${SOURCE_FILES_C} ${HEADERS_C} $(blddir_work)/VersionInfo.h
@@ -285,7 +294,7 @@ install: build
 	ln -s lib$(MQTTLIB_CS).so.${MAJOR_VERSION} $(DESTDIR)${libdir}/lib$(MQTTLIB_CS).so
 	ln -s lib$(MQTTLIB_A).so.${MAJOR_VERSION} $(DESTDIR)${libdir}/lib$(MQTTLIB_A).so
 	ln -s lib$(MQTTLIB_AS).so.${MAJOR_VERSION} $(DESTDIR)${libdir}/lib$(MQTTLIB_AS).so
-	@if test ! -f $(DESTDIR)${blddir}/lib$(MQTTLIB_C).so.${MAJOR_VERSION}; then ln -s lib$(MQTTLIB_C).so.${VERSION} $(DESTDIR)${blddir}/lib$(MQTTLIB_C).so.${MAJOR_VERSION}; fi
+	@if test ! -f $(DESTDIR)${libdir}/lib$(MQTTLIB_C).so.${MAJOR_VERSION}; then ln -s lib$(MQTTLIB_C).so.${VERSION} $(DESTDIR)${libdir}/lib$(MQTTLIB_C).so.${MAJOR_VERSION}; fi
 	@if test ! -f $(DESTDIR)${libdir}/lib$(MQTTLIB_CS).so.${MAJOR_VERSION}; then ln -s lib$(MQTTLIB_CS).so.${VERSION} $(DESTDIR)${libdir}/lib$(MQTTLIB_CS).so.${MAJOR_VERSION}; fi
 	@if test ! -f $(DESTDIR)${libdir}/lib$(MQTTLIB_A).so.${MAJOR_VERSION}; then ln -s lib$(MQTTLIB_A).so.${VERSION} $(DESTDIR)${libdir}/lib$(MQTTLIB_A).so.${MAJOR_VERSION}; fi
 	@if test ! -f $(DESTDIR)${libdir}/lib$(MQTTLIB_AS).so.${MAJOR_VERSION}; then ln -s lib$(MQTTLIB_AS).so.${VERSION} $(DESTDIR)${libdir}/lib$(MQTTLIB_AS).so.${MAJOR_VERSION}; fi
@@ -300,8 +309,12 @@ install: build
 	- $(INSTALL_DATA) doc/man/man1/paho_cs_pub.1 $(DESTDIR)${man1dir}
 	- $(INSTALL_DATA) doc/man/man1/paho_cs_sub.1 $(DESTDIR)${man1dir}
 	
+ifneq ("$(wildcard ${blddir}/doc/MQTTClient/man/man3/MQTTClient.h.3)","")
 	- $(INSTALL_DATA) ${blddir}/doc/MQTTClient/man/man3/MQTTClient.h.3 $(DESTDIR)${man3dir}
+endif
+ifneq ("$(wildcard ${blddir}/doc/MQTTAsync/man/man3/MQTTAsync.h.3)","")
 	- $(INSTALL_DATA) ${blddir}/doc/MQTTAsync/man/man3/MQTTAsync.h.3 $(DESTDIR)${man3dir}
+endif
 	
 uninstall:
 	- rm $(DESTDIR)${libdir}/${MQTTLIB_C_NAME} 
@@ -318,7 +331,7 @@ uninstall:
 	- rm $(DESTDIR)${libdir}/lib$(MQTTLIB_CS).so
 	- rm $(DESTDIR)${libdir}/lib$(MQTTLIB_A).so
 	- rm $(DESTDIR)${libdir}/lib$(MQTTLIB_AS).so
-	- rm $(DESTDIR)${blddir}/lib$(MQTTLIB_C).so.${MAJOR_VERSION}
+	- rm $(DESTDIR)${libdir}/lib$(MQTTLIB_C).so.${MAJOR_VERSION}
 	- rm $(DESTDIR)${libdir}/lib$(MQTTLIB_CS).so.${MAJOR_VERSION}
 	- rm $(DESTDIR)${libdir}/lib$(MQTTLIB_A).so.${MAJOR_VERSION}
 	- rm $(DESTDIR)${libdir}/lib$(MQTTLIB_AS).so.${MAJOR_VERSION}
@@ -334,8 +347,12 @@ uninstall:
 	- rm $(DESTDIR)${man1dir}/paho_cs_pub.1
 	- rm $(DESTDIR)${man1dir}/paho_cs_sub.1
 	
+ifneq ("$(wildcard $(DESTDIR)${man3dir}/MQTTClient.h.3)","")
 	- rm $(DESTDIR)${man3dir}/MQTTClient.h.3
+endif
+ifneq ("$(wildcard $(DESTDIR)${man3dir}/MQTTAsync.h.3)","")
 	- rm $(DESTDIR)${man3dir}/MQTTAsync.h.3
+endif
 
 REGEX_DOXYGEN := \
     's;@PROJECT_SOURCE_DIR@/src/\?;;' \

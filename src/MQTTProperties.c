@@ -1,18 +1,20 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2018 IBM Corp.
+ * Copyright (c) 2017, 2020 IBM Corp.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  *
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0/
  * and the Eclipse Distribution License is available at
  *   http://www.eclipse.org/org/documents/edl-v10.php.
  *
  * Contributors:
  *    Ian Craggs - initial API and implementation and/or initial documentation
  *******************************************************************************/
+
+#include "ExportDeclarations.h"
 
 #include "MQTTProperties.h"
 
@@ -64,7 +66,8 @@ static struct nameToType
 static char* datadup(const MQTTLenString* str)
 {
 	char* temp = malloc(str->len);
-	memcpy(temp, str->data, str->len);
+	if (temp)
+		memcpy(temp, str->data, str->len);
 	return temp;
 }
 
@@ -92,6 +95,12 @@ int MQTTProperties_len(MQTTProperties* props)
 }
 
 
+/**
+ * Add a new property to a property list
+ * @param props the property list
+ * @param prop the new property
+ * @return code 0 is success
+ */
 int MQTTProperties_add(MQTTProperties* props, const MQTTProperty* prop)
 {
   int rc = 0, type;
@@ -147,6 +156,8 @@ int MQTTProperties_add(MQTTProperties* props, const MQTTProperty* prop)
     }
     props->length += len + 1; /* add identifier byte */
   }
+  else
+	  rc = PAHO_MEMORY_ERROR;
 
 exit:
   return rc;
@@ -273,7 +284,7 @@ int MQTTProperty_read(MQTTProperty* prop, char** pptr, char* enddata)
 int MQTTProperties_read(MQTTProperties* properties, char** pptr, char* enddata)
 {
   int rc = 0;
-  int remlength = 0;
+  unsigned int remlength = 0;
 
   FUNC_ENTRY;
   /* we assume an initialized properties structure */
@@ -283,14 +294,19 @@ int MQTTProperties_read(MQTTProperties* properties, char** pptr, char* enddata)
     properties->length = remlength;
     while (remlength > 0)
     {
-    	  if (properties->count == properties->max_count)
-    	  {
-    		properties->max_count += 10;
-    		if (properties->max_count == 10)
-    		  properties->array = malloc(sizeof(MQTTProperty) * properties->max_count);
-    		else
-    		  properties->array = realloc(properties->array, sizeof(MQTTProperty) * properties->max_count);
-    	  }
+      if (properties->count == properties->max_count)
+      {
+    	properties->max_count += 10;
+    	if (properties->max_count == 10)
+    	  properties->array = malloc(sizeof(MQTTProperty) * properties->max_count);
+    	else
+    	  properties->array = realloc(properties->array, sizeof(MQTTProperty) * properties->max_count);
+      }
+      if (properties->array == NULL)
+      {
+    	rc = PAHO_MEMORY_ERROR;
+        goto exit;
+      }
       remlength -= MQTTProperty_read(&properties->array[properties->count], pptr, enddata);
       properties->count++;
     }
@@ -304,6 +320,8 @@ int MQTTProperties_read(MQTTProperties* properties, char** pptr, char* enddata)
 	  properties->array = NULL;
 	  properties->max_count = properties->count = 0;
   }
+
+exit:
   FUNC_EXIT_RC(rc);
   return rc;
 }
@@ -359,7 +377,7 @@ const char* MQTTPropertyName(enum MQTTPropertyCodes value)
 }
 
 
-DLLExport void MQTTProperties_free(MQTTProperties* props)
+void MQTTProperties_free(MQTTProperties* props)
 {
   int i = 0;
 

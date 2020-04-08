@@ -2,11 +2,11 @@
  * Copyright (c) 2009, 2018 IBM Corp.
  *
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution. 
  *
  * The Eclipse Public License is available at 
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    https://www.eclipse.org/legal/epl-2.0/
  * and the Eclipse Distribution License is available at 
  *   http://www.eclipse.org/org/documents/edl-v10.php.
  *
@@ -44,7 +44,7 @@
 /** Stem of the key for an async client command */
 #define PERSISTENCE_COMMAND_KEY "c-"
 /** Stem of the key for an MQTT V5 async client command */
-#define PERSISTENCE_V5_COMMAND_KEY "c-"
+#define PERSISTENCE_V5_COMMAND_KEY "c5-"
 /** Stem of the key for an async client message queue */
 #define PERSISTENCE_QUEUE_KEY "q-"
 /** Stem of the key for an MQTT V5 message queue */
