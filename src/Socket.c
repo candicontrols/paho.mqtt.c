@@ -705,6 +705,14 @@ int Socket_new(const char* addr, size_t addr_len, int port, int* sock)
 	memcpy( addr_mem, addr, addr_len );
 	addr_mem[addr_len] = '\0';
 
+	// check user:password@ in URL
+	char* at = strchr(addr_mem, '@');
+	if (at) {
+	    memmove(addr_mem, at+1, strlen(at));
+	    addr_len =  strlen(addr_mem);
+	}
+
+	
 //#if defined(__GNUC__) && defined(__linux__)
 #if 0
 	struct gaicb ar = {addr_mem, NULL, &hints, NULL};
